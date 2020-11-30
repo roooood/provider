@@ -5,6 +5,7 @@ exports.up = knex => {
     t.integer('user_id')
     t.string('type', 10)
     t.float('amount')
+    t.integer('state')
     t.float('profit')
   })
 }

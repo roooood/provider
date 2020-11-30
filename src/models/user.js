@@ -11,8 +11,10 @@ const selectableProps = [
   'id',
   'ref',
   'username',
-  'token',
   'balance',
+  'status',
+  'token',
+  'extra',
   'updated_at',
   'created_at'
 ]

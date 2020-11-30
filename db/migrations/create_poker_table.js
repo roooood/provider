@@ -9,7 +9,6 @@ exports.up = knex => {
     t.integer('max')
     t.integer('sb')
     t.integer('bb')
-    t.integer('bb')
     t.integer('order')
     t.string('extra', 500)
   })

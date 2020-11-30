@@ -2,14 +2,16 @@
 
 const createGuts = require('../helpers/model-guts')
 
-const name = 'hiloGame'
-const tableName = 'hilo_game'
+const name = 'hiloBetting'
+const tableName = 'hilo_betting'
 
 
 const selectableProps = [
     'id',
-    'card',
-    'created_at'
+    'user_id',
+    'amount',
+    'state',
+    'created_at',
 ]
 
 module.exports = knex => {
