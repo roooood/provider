@@ -10,20 +10,14 @@ const tableName = 'users'
 const selectableProps = [
   'id',
   'ref',
+  'ref_id',
   'username',
   'balance',
   'status',
-  'token',
   'extra',
   'updated_at',
   'created_at'
 ]
-
-const beforeSave = user => {
-  let hash = cryptoRandomString({ length: 50, type: 'base64' });
-  return Promise.resolve({ ...user, token: hash })
-}
-
 module.exports = knex => {
   const guts = createGuts({
     knex,
@@ -32,11 +26,7 @@ module.exports = knex => {
     selectableProps
   })
 
-  const create = props => beforeSave(props)
-    .then(user => guts.create(user));
-
   return {
     ...guts,
-    create,
   }
 }

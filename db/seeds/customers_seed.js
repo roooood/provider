@@ -7,10 +7,12 @@ exports.seed = knex => knex(Customer.tableName).del()
     {
       id: 1,
       name: 'demo',
+      key: 'demo',
+      token: 'x',
+      callback: 'http://localhost:2567/',
       lang: 'en',
       currency: 'usd',
       comission: 10,
-      token: 'demo',
       minBet: 1,
       changeBet: 1,
       maxBet: 100

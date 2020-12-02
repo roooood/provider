@@ -1,10 +1,10 @@
 'use strict'
-const connection = require('./config/connection')
+const setting = require('./config/settings')
 
 module.exports = {
   development: {
     client: 'mysql',
-    connection: connection,
+    connection: setting.database,
     migrations: {
       tableName: 'knex_migrations',
       directory: `${__dirname}/db/migrations`
@@ -15,7 +15,7 @@ module.exports = {
   },
   staging: {
     client: 'mysql',
-    connection: connection,
+    connection: setting.database,
     pool: {
       min: 2,
       max: 10
@@ -26,7 +26,7 @@ module.exports = {
   },
   production: {
     client: 'mysql',
-    connection: connection,
+    connection: setting.database,
     pool: {
       min: 2,
       max: 10

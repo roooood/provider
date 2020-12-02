@@ -8,7 +8,7 @@ const tableName = 'hilo_chat'
 
 const selectableProps = [
     'id',
-    'ref',
+    'user_id',
     'text',
     'created_at'
 ]

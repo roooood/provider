@@ -10,6 +10,7 @@ const selectableProps = [
     'id',
     'game_id',
     'user_id',
+    'type',
     'amount',
     'state',
     'profit',

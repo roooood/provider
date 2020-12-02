@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@colyseus/monitor": "^0.14.0",
+    "axios": "^0.21.0",
     "body-parser": "1.19.0",
     "colyseus": "^0.14.2",
     "cors": "^2.8.5",
@@ -23,6 +24,7 @@
     "exact-math": "^2.2.3",
     "express": "4.17.1",
     "http": "^0.0.1-security",
+    "jsonwebtoken": "^8.5.1",
     "knex": "0.20.8",
     "mysql": "^2.18.1"
   }

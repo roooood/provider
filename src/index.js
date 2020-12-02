@@ -33,6 +33,7 @@ app.use('/monitor', monitor());
 app.use('/', [
   require('./routes/user_routes'),
   require('./routes/auth_routes'),
+  require('./routes/customer_routes')
 ])
 
 //define game middleware

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 'use strict'
-
+var settings = require('../config/settings');
 const { app, gameServer } = require('./index')
-const PORT = process.env.PORT || 2567;
+const PORT = process.env.PORT || settings.port;
 
 gameServer.listen(PORT);
 console.log(`Server started on port ${PORT}`)

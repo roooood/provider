@@ -1,24 +1,32 @@
-const em = require('exact-math');
 const { Room } = require("colyseus");
+const em = require('exact-math');
+var jwt = require('jsonwebtoken');
+var setting = require('../../config/settings');
 const knex = require('../../config/database');
 const { User, hiloHistory, hiloChat, hiloGame, hiloBetting } = require('../models')
 
 const cardNumber = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
 const cardType = ['h', 'd', 's', 'c'];
-const hiRatio = [1.09, 1.2, 1.33, 1.5, 1.71, 2, 2.4, 3, 4, 6, 12, 0];
-const loRatio = hiRatio.reverse();
+
+const loRatio = [1.09, 1.2, 1.33, 1.5, 1.7, 2, 2.4, 3, 4, 6, 1.8, 12, 0];
+const hiRatio = [0, 12, 6, 4.8, 4, 3, 2.4, 2, 1.7, 1.5, 1.33, 1.2, 1.9];
 
 class State {
     constructor() {
         this.players = [];
         this.ratio = {};
+        this.games = [];
+        this.started = false;
+        this.card = '';
     }
 }
 
 class ServerHilo extends Room {
     onCreate(options) {
+        this.card = [];
         this.setState(new State());
         this.getChats();
+        this.getGames();
         this.clock.setTimeout(() => {
             this.start();
         }, 1000);
@@ -28,25 +36,29 @@ class ServerHilo extends Room {
     }
 
     async onAuth(client, { token }, req) {
-        const user = await User.find({ token }).then(user => user[0]);
-        if ('id' in user) {
+        let { id } = jwt.verify(token, setting.privateKey);
+        const user = await User.findOne({ id });
+        if (user) {
             client.userId = user.id;
             client.username = user.username;
             client.balance = user.balance;
             client.state = user.state;
             return true;
         }
+
         return false;
     }
 
     onJoin(client, options, auth) {
-        this.updateUser(client)
+        this.clock.setTimeout(() => {
+            this.updateUser(client)
+        }, 1000);
     }
 
     receive(client, type, message) {
         switch (type) {
             case 'chat':
-                this.getChat(client, message);
+                this.setChat(client, message);
                 break;
             case 'bet':
                 this.setBet(client, message);
@@ -72,28 +84,34 @@ class ServerHilo extends Room {
             this.checkResult();
         }, 10000);
     }
+    getGames() {
+        hiloGame.get(10)
+            .then(games => {
+                this.state.games = games;
+            })
+    }
     getChats() {
         knex
             .select([
-                ...['id', 'ref', 'text', 'created_at'].map(e => 'hilo_chat.' + e),
+                ...['id', 'user_id', 'text', 'created_at'].map(e => 'hilo_chat.' + e),
                 ...['username'].map(e => 'users.' + e)
             ])
             .from('hilo_chat')
-            .leftJoin('users', 'hilo_chat.ref', 'users.id')
-            .limit(30)
+            .leftJoin('users', 'hilo_chat.user_id', 'users.id')
+            .limit(20)
             .then(data => {
                 this.state.message = data;
             })
     }
-    getChat(client, message) {
+    setChat(client, message) {
         hiloChat.create({
-            ref: client.userId,
+            user_id: client.userId,
             text: message
         })
             .then(user => {
                 this.state.message.push({
                     id: user[0],
-                    ref: client.userId,
+                    user_id: client.userId,
                     username: client.username,
                     text: message
                 })
@@ -108,37 +126,45 @@ class ServerHilo extends Room {
     }
     getHistory(id) {
         let index = this.clients.findIndex(c => c.userId == id)
-        hiloHistory.get(20, { ref: id })
+        hiloHistory.get(20, { user_id: id })
             .then(history => {
                 this.clients[index].send('history', history)
             })
     }
     dispatchCard(getCard) {
-        this.broadcast('started', 10);
+        this.state.started = true;
         if (getCard) {
             this.getCard();
         }
+        const { type, num } = this.card[0];
         this.state.ratio = { 'hi': hiRatio[num], 'lo': loRatio[num], '=': 5, 'black': 2, 'red': 2, '2-9': 1.5, 'jqka': 3, 'ka': 4, 'jq': 4, 'a': 12 }
     }
     getCard() {
-        this.card = Array.isArray(this.card) ?? [];
         const num = this.random(0, 12);
         const type = this.random(0, 3);
         this.card.unshift({ type, num });
         if (this.card.length > 2) {
-            this.card.pop(); s
+            this.card.pop();
         }
-        this.broadcast('card', cardNumber[num] + cardType[type]);
+        this.state.card = cardNumber[num] + cardType[type];
     }
     checkResult() {
-        this.broadcast('ended', true);
+        this.state.started = false;
         this.getCard();
         if (this.state.players.length > 0) {
+            let card = cardNumber[this.card[0].num] + cardType[this.card[0].type];
             hiloGame.create({
-                card: this.card[0],
+                card: card,
             })
                 .then(game => {
                     let gameId = game[0];
+                    this.state.games.unshift({
+                        id: gameId,
+                        card
+                    });
+                    if (this.state.games.length > 10) {
+                        this.state.games.pop();
+                    }
                     for (let player of this.state.players) {
                         let res = this.checkType(player.type);
                         let profit = 0;
@@ -157,7 +183,7 @@ class ServerHilo extends Room {
                             profit,
                         })
                             .then(history => {
-                                // this.getHistory(player.userId)
+
                             })
 
                     }
@@ -169,11 +195,14 @@ class ServerHilo extends Room {
     }
 
     setBetting(client, amount, state) {
-        this.updateBalance(client, amount, state);
+        this.updateBalance(client, amount, !state);
+
         hiloBetting.create({
             user_id: client.userId,
             amount,
             state: state ? 1 : 0
+        }).then(bet => {
+
         })
     }
     updateBalance(client, amount, state) {
@@ -181,21 +210,22 @@ class ServerHilo extends Room {
             let index = this.clients.findIndex(c => c.userId == client);
             client = this.clients[index];
         }
-        let newBalance = state ? em.sub(client.balance, amount) : em.add(client.balance, amount);
+        let newBalance = state ? em.add(client.balance, amount) : em.sub(client.balance, amount);
         let balance = { balance: newBalance };
         client.balance = newBalance;
+
         User.update(client.userId, balance)
         client.send('setting', balance);
     }
-    checkType(ptype, { type, num }) {
-        let { type: btype, num: bnum } = this.card;
-        switch (ptype) {
+    checkType(playerType) {
+        const [{ type, num }, { type: ptype, num: pnum }] = this.card;
+        switch (playerType) {
             case 'hi':
-                return bnum > num;
+                return pnum > num;
             case 'lo':
-                return bnum < num;
+                return pnum < num;
             case '=':
-                return bnum == num;
+                return pnum == num;
             case 'red':
                 return type < 2;
             case 'black':
@@ -205,7 +235,7 @@ class ServerHilo extends Room {
             case 'jqka':
                 return num < 4;
             case 'ka':
-                return [0, 1].includes(num);
+                return num < 2;
             case 'jq':
                 return [2, 3].includes(num);
             case 'a':

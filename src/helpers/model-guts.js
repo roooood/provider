@@ -25,17 +25,20 @@ module.exports = ({
 
   const findAll = () => knex.select(selectableProps)
     .from(tableName)
+    .orderBy('id', 'desc')
     .timeout(timeout)
 
   const find = filters => knex.select(selectableProps)
     .from(tableName)
     .where(filters)
+    .orderBy('id', 'desc')
     .timeout(timeout)
 
   const get = (count, filters = {}) => knex.select(selectableProps)
     .from(tableName)
     .where(filters)
     .limit(count)
+    .orderBy('id', 'desc')
     .timeout(timeout)
 
   // Same as `find` but only returns the first match if >1 are found.
@@ -49,6 +52,7 @@ module.exports = ({
   const findById = id => knex.select(selectableProps)
     .from(tableName)
     .where({ id })
+    .orderBy('id', 'desc')
     .timeout(timeout)
 
   const update = (id, props) => {

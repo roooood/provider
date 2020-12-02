@@ -10,10 +10,12 @@ const tableName = 'customers'
 const selectableProps = [
     'id',
     'name',
+    'key',
+    'token',
+    'callback',
     'lang',
     'currency',
     'comission',
-    'token',
     'minBet',
     'changeBet',
     'maxBet',
@@ -22,7 +24,7 @@ const selectableProps = [
 ]
 
 const beforeSave = user => {
-    let hash = cryptoRandomString({ length: 50, type: 'base64' });
+    let hash = cryptoRandomString({ length: 25, type: 'base64' });
     return Promise.resolve({ ...user, token: hash })
 }
 
