@@ -98,6 +98,7 @@ class ServerHilo extends Room {
             ])
             .from('hilo_chat')
             .leftJoin('users', 'hilo_chat.user_id', 'users.id')
+            .orderBy('id', 'desc')
             .limit(20)
             .then(data => {
                 this.state.message = data;
@@ -122,14 +123,19 @@ class ServerHilo extends Room {
             balance: client.balance,
             id: client.userId
         });
-        this.getHistory(client.userId);
+        this.getHistory(client);
     }
-    getHistory(id) {
-        let index = this.clients.findIndex(c => c.userId == id)
-        hiloHistory.get(20, { user_id: id })
+    getHistory(client) {
+        hiloHistory.get(20, { user_id: client.userId })
             .then(history => {
-                this.clients[index].send('history', history)
+                client.send('history', history)
             })
+    }
+    setHistory(history) {
+        let index = this.clients.findIndex(c => c.userId == history.user_id);
+        if (index >= 0) {
+            this.clients[index].send('history', [history])
+        }
     }
     dispatchCard(getCard) {
         this.state.started = true;
@@ -151,44 +157,44 @@ class ServerHilo extends Room {
     checkResult() {
         this.state.started = false;
         this.getCard();
-        if (this.state.players.length > 0) {
-            let card = cardNumber[this.card[0].num] + cardType[this.card[0].type];
-            hiloGame.create({
-                card: card,
-            })
-                .then(game => {
-                    let gameId = game[0];
-                    this.state.games.unshift({
-                        id: gameId,
-                        card
-                    });
-                    if (this.state.games.length > 10) {
-                        this.state.games.pop();
-                    }
-                    for (let player of this.state.players) {
-                        let res = this.checkType(player.type);
-                        let profit = 0;
-                        if (res) {
-                            let xprofit = em.mul(this.state.ratio[player.type], player.bet);
-                            profit = em.sub(xprofit, player.bet);
-                            this.updateBalance(player.userId, xprofit, true)
-                        }
-                        player.status = profit;
-                        hiloHistory.create({
-                            game_id: gameId,
-                            user_id: player.userId,
-                            type: player.type,
-                            amount: player.bet,
-                            state: res ? 1 : 0,
-                            profit,
-                        })
-                            .then(history => {
-
-                            })
-
-                    }
+        let card = cardNumber[this.card[1].num] + cardType[this.card[1].type];
+        hiloGame.create({
+            card: card,
+        })
+            .then(game => {
+                let gameId = game[0];
+                this.state.games.unshift({
+                    id: gameId,
+                    card
                 });
-        }
+                if (this.state.games.length > 10) {
+                    this.state.games.pop();
+                }
+                for (let player of this.state.players) {
+                    let res = this.checkType(player.type);
+                    let profit = 0;
+                    if (res) {
+                        let xprofit = em.mul(this.state.ratio[player.type], player.bet);
+                        profit = em.sub(xprofit, player.bet);
+                        this.updateBalance(player.userId, xprofit, true)
+                    }
+                    player.status = profit;
+                    let history = {
+                        game_id: gameId,
+                        user_id: player.userId,
+                        type: player.type,
+                        amount: player.bet,
+                        state: res ? 1 : 0,
+                        profit,
+                    };
+                    hiloHistory.create(history)
+                        .then(his => {
+                            this.setHistory(history)
+                        })
+
+                }
+            });
+
         this.clock.setTimeout(() => {
             this.start(false);
         }, 4000);

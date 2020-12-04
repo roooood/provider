@@ -24,16 +24,14 @@ const gameServer = new Server({
 //define game servers
 gameServer.define("demo", demo);
 gameServer.define("hilo", hilo);
-gameServer.onShutdown(function () {
+gameServer.onShutdown(() => {
   console.log(`game server is going down.`);
 });
 app.use('/monitor', monitor());
 
 //define game routes
 app.use('/', [
-  require('./routes/user_routes'),
   require('./routes/auth_routes'),
-  require('./routes/customer_routes')
 ])
 
 //define game middleware

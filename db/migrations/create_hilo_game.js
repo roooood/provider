@@ -1,7 +1,7 @@
 exports.up = knex => {
   return knex.schema.createTable('hilo_game', t => {
     t.increments('id').primary()
-    t.string('card', 2)
+    t.string('card', 3)
     t.timestamp('created_at').defaultTo(knex.fn.now())
   })
 }

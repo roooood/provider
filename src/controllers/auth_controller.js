@@ -1,6 +1,6 @@
 'use strict'
 var _ = require('lodash');
-var axios = require('axios');
+var { post } = require('../helpers/request');
 var jwt = require('jsonwebtoken');
 var setting = require('../../config/settings');
 
@@ -10,15 +10,14 @@ const knex = require('../../config/database');
 const authUsers = (req, res, next) => {
   //let params = _.pick(req.body, 'type', 'address', 'price');
   const props = req.body;
-
   Customer.findOne({ token: props.ref })
     .then(customer => {
       if (!customer) {
         return res.json({ 'error': 'customer-error' })
       }
-      axios.post(customer.callback + 'user', { token: customer.token, user: props.token })
-        .then(({ data }) => {
-          if (data?.status) {
+      post(customer.callback + 'auth', { secret: customer.key, token: props.token })
+        .then((data) => {
+          if (data?.result == 'ok') {
             const { id, username, balance } = data.data;
             const auth = { ref: customer.id, ref_id: id };
             User.findOne(auth)
@@ -54,7 +53,7 @@ const nextUser = (res, customer, user) => {
     minBet, changeBet, maxBet, currency, lang,
     token: jwt.sign({ id, exp: Math.floor(Date.now() / 1000) + (60 * 60) }, setting.privateKey)
   }
-  res.json({ status: true, data })
+  res.json({ result: 'ok', data })
 }
 
 module.exports = {
