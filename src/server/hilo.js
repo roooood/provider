@@ -3,7 +3,7 @@ const em = require('exact-math');
 var jwt = require('jsonwebtoken');
 var setting = require('../../config/settings');
 const knex = require('../../config/database');
-const { User, hiloHistory, hiloChat, hiloGame, hiloBetting } = require('../models')
+const { Customer, User, hiloHistory, hiloChat, hiloGame, hiloBetting } = require('../models')
 
 const cardNumber = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
 const cardType = ['h', 'd', 's', 'c'];
@@ -24,8 +24,10 @@ class State {
 class ServerHilo extends Room {
     onCreate(options) {
         this.card = [];
+        this.gameId = 0;
         this.setState(new State());
         this.getChats();
+        this.getCustomer();
         this.getGames();
         this.clock.setTimeout(() => {
             this.start();
@@ -45,7 +47,6 @@ class ServerHilo extends Room {
             client.state = user.state;
             return true;
         }
-
         return false;
     }
 
@@ -64,6 +65,9 @@ class ServerHilo extends Room {
                 this.setBet(client, message);
                 break;
         }
+    }
+    getCustomer() {
+        Customer.f
     }
     setBet(client, { bet, type }) {
         bet = parseInt(bet);
@@ -142,58 +146,50 @@ class ServerHilo extends Room {
         if (getCard) {
             this.getCard();
         }
-        const { type, num } = this.card[0];
+        const { type, num, card } = this.card[0];
+        hiloGame.create({
+            card: card,
+        }).then(game => {
+            this.gameId = game[0];
+        });
         this.state.ratio = { 'hi': hiRatio[num], 'lo': loRatio[num], '=': 5, 'black': 2, 'red': 2, '2-9': 1.5, 'jqka': 3, 'ka': 4, 'jq': 4, 'a': 12 }
     }
     getCard() {
         const num = this.random(0, 12);
         const type = this.random(0, 3);
-        this.card.unshift({ type, num });
-        if (this.card.length > 2) {
-            this.card.pop();
-        }
-        this.state.card = cardNumber[num] + cardType[type];
+        const card = cardNumber[num] + cardType[type];
+        this.limit(this.card, { type, num, card }, 2);
+        this.state.card = card;
     }
     checkResult() {
         this.state.started = false;
         this.getCard();
-        let card = cardNumber[this.card[1].num] + cardType[this.card[1].type];
-        hiloGame.create({
-            card: card,
-        })
-            .then(game => {
-                let gameId = game[0];
-                this.state.games.unshift({
-                    id: gameId,
-                    card
-                });
-                if (this.state.games.length > 10) {
-                    this.state.games.pop();
-                }
-                for (let player of this.state.players) {
-                    let res = this.checkType(player.type);
-                    let profit = 0;
-                    if (res) {
-                        let xprofit = em.mul(this.state.ratio[player.type], player.bet);
-                        profit = em.sub(xprofit, player.bet);
-                        this.updateBalance(player.userId, xprofit, true)
-                    }
-                    player.status = profit;
-                    let history = {
-                        game_id: gameId,
-                        user_id: player.userId,
-                        type: player.type,
-                        amount: player.bet,
-                        state: res ? 1 : 0,
-                        profit,
-                    };
-                    hiloHistory.create(history)
-                        .then(his => {
-                            this.setHistory(history)
-                        })
 
-                }
-            });
+        this.limit(this.state.games, { id: this.gameId, card: this.card[1].card }, 10);
+
+        for (let player of this.state.players) {
+            let res = this.checkType(player.type);
+            let profit = 0;
+            if (res) {
+                let xprofit = em.mul(this.state.ratio[player.type], player.bet);
+                profit = em.sub(xprofit, player.bet);
+                this.updateBalance(player.userId, xprofit, true)
+            }
+            player.status = profit;
+            let history = {
+                game_id: this.gameId,
+                user_id: player.userId,
+                type: player.type,
+                amount: player.bet,
+                state: res ? 1 : 0,
+                profit,
+            };
+            hiloHistory.create(history)
+                .then(his => {
+                    this.setHistory(history)
+                })
+
+        }
 
         this.clock.setTimeout(() => {
             this.start(false);
@@ -201,7 +197,7 @@ class ServerHilo extends Room {
     }
 
     setBetting(client, amount, state) {
-        this.updateBalance(client, amount, !state);
+        this.updateBalance(client.userId, amount, !state);
 
         hiloBetting.create({
             user_id: client.userId,
@@ -211,17 +207,16 @@ class ServerHilo extends Room {
 
         })
     }
-    updateBalance(client, amount, state) {
-        if (Number.isInteger(client)) {
-            let index = this.clients.findIndex(c => c.userId == client);
-            client = this.clients[index];
-        }
-        let newBalance = state ? em.add(client.balance, amount) : em.sub(client.balance, amount);
-        let balance = { balance: newBalance };
-        client.balance = newBalance;
+    async updateBalance(userId, amount, state) {
+        let index = this.clients.findIndex(c => c.userId == userId);
+        let newBalance = state ? em.add(5000, amount) : em.sub(5000, amount);
 
-        User.update(client.userId, balance)
-        client.send('setting', balance);
+        await User.update(userId, { balance: parseFloat(newBalance) });
+
+        if (index >= 0) {
+            this.clients[index].send('setting', { balance: newBalance });
+            this.clients[index].balance = newBalance;
+        }
     }
     checkType(playerType) {
         const [{ type, num }, { type: ptype, num: pnum }] = this.card;
@@ -246,6 +241,12 @@ class ServerHilo extends Room {
                 return [2, 3].includes(num);
             case 'a':
                 return num == 0;
+        }
+    }
+    limit(arr, data, len) {
+        arr.unshift(data);
+        if (arr.length > len) {
+            arr.pop();
         }
     }
     random(min, max) {
