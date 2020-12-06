@@ -5,7 +5,6 @@ var jwt = require('jsonwebtoken');
 var setting = require('../../config/settings');
 
 const { User, Customer } = require('../models')
-const knex = require('../../config/database');
 
 const authUsers = (req, res, next) => {
   //let params = _.pick(req.body, 'type', 'address', 'price');
@@ -31,7 +30,10 @@ const authUsers = (req, res, next) => {
                     })
                 }
                 else {
-                  nextUser(res, customer, user)
+                  User.update(user.id, { balance })
+                    .then(usr => {
+                      nextUser(res, customer, user)
+                    })
                 }
               })
           }

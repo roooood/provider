@@ -4,13 +4,13 @@ var jwt = require('jsonwebtoken');
 var setting = require('../../config/settings');
 const knex = require('../../config/database');
 const { Customer, User, hiloHistory, hiloChat, hiloGame, hiloBetting } = require('../models')
-
+const { limit, random, toggle } = require('../helpers/game_helper');
 const cardNumber = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
 const cardType = ['h', 'd', 's', 'c'];
 
 const loRatio = [1.09, 1.2, 1.33, 1.5, 1.7, 2, 2.4, 3, 4, 6, 1.8, 12, 0];
 const hiRatio = [0, 12, 6, 4.8, 4, 3, 2.4, 2, 1.7, 1.5, 1.33, 1.2, 1.9];
-
+const customers = {};
 class State {
     constructor() {
         this.players = [];
@@ -42,6 +42,7 @@ class ServerHilo extends Room {
         const user = await User.findOne({ id });
         if (user) {
             client.userId = user.id;
+            client.ref = { id: user.ref, user: user.ref_id }
             client.username = user.username;
             client.balance = user.balance;
             client.state = user.state;
@@ -67,13 +68,26 @@ class ServerHilo extends Room {
         }
     }
     getCustomer() {
-        Customer.f
+        Customer.findAll()
+            .then(css => {
+                for (let cs of css) {
+                    customers[cs.id] = { callback: cs.callback, secret: cs.secret }
+                }
+                console.log(customers)
+            })
     }
     setBet(client, { bet, type }) {
-        bet = parseInt(bet);
-        let res = this.toggle(this.state.players, {
+        const ref = this.ref(client.ref);
+        const balance = get_balance(ref);
+        if (balance < bet) {
+            client.send('error', 'balance-error');
+            return;
+        }
+        client.balace = balance;
+        let res = toggle(this.state.players, {
             userId: client.userId,
             user: client.username,
+            ref: client.ref,
             type: type,
             bet: bet,
             status: null
@@ -155,17 +169,17 @@ class ServerHilo extends Room {
         this.state.ratio = { 'hi': hiRatio[num], 'lo': loRatio[num], '=': 5, 'black': 2, 'red': 2, '2-9': 1.5, 'jqka': 3, 'ka': 4, 'jq': 4, 'a': 12 }
     }
     getCard() {
-        const num = this.random(0, 12);
-        const type = this.random(0, 3);
+        const num = random(0, 12);
+        const type = random(0, 3);
         const card = cardNumber[num] + cardType[type];
-        this.limit(this.card, { type, num, card }, 2);
+        limit(this.card, { type, num, card }, 2);
         this.state.card = card;
     }
     checkResult() {
         this.state.started = false;
         this.getCard();
 
-        this.limit(this.state.games, { id: this.gameId, card: this.card[1].card }, 10);
+        limit(this.state.games, { id: this.gameId, card: this.card[1].card }, 10);
 
         for (let player of this.state.players) {
             let res = this.checkType(player.type);
@@ -195,10 +209,8 @@ class ServerHilo extends Room {
             this.start(false);
         }, 4000);
     }
-
     setBetting(client, amount, state) {
         this.updateBalance(client.userId, amount, !state);
-
         hiloBetting.create({
             user_id: client.userId,
             amount,
@@ -243,24 +255,15 @@ class ServerHilo extends Room {
                 return num == 0;
         }
     }
-    limit(arr, data, len) {
-        arr.unshift(data);
-        if (arr.length > len) {
-            arr.pop();
-        }
+    ref(ref) {
+        return { callback: customer[ref.id].callback, secret: customer[ref.id].key, id: ref.user_id }
     }
-    random(min, max) {
-        return Math.floor(Math.random() * max) + min;
-    }
-    toggle(arr, item) {
-        var idx = arr.findIndex(e => e.userId == item.userId);
-        if (idx !== -1) {
-            arr.splice(idx, 1);
-            return false;
-        } else {
-            arr.unshift(item);
-            return true;
+    async get_balance({ id, callback, secret }) {
+        const res = await post(callback + 'balance', { secret, id });
+        if (res?.result == 'ok') {
+            return res.data.balance;
         }
+        return false;
     }
 }
 
