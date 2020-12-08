@@ -37,8 +37,8 @@ const deposit = async (userId, { id, callback, secret, amount, tid }) => {
     }
     return false;
 }
-const whitdraw = async (userId, { id, callback, secret, amount, tid }) => {
-    const res = await post(callback + 'whitdraw', { secret, id, amount, tid });
+const withdraw = async (userId, { id, callback, secret, amount, tid }) => {
+    const res = await post(callback + 'withdraw', { secret, id, amount, tid });
     console.log(res)
     if (res?.result == 'ok') {
         await User.update(userId, { balance: res.data.balance });
@@ -47,7 +47,7 @@ const whitdraw = async (userId, { id, callback, secret, amount, tid }) => {
     return false;
 }
 const rollback = async (userId, { id, callback, secret, amount, tid }) => {
-    return await whitdraw(userId, { id, callback, secret, amount, tid })
+    return await withdraw(userId, { id, callback, secret, amount, tid })
 }
 module.exports = {
     limit,
@@ -56,5 +56,5 @@ module.exports = {
     get_balance,
     deposit,
     rollback,
-    whitdraw
+    withdraw
 }

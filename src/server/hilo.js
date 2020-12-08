@@ -4,7 +4,7 @@ var jwt = require('jsonwebtoken');
 var setting = require('../../config/settings');
 const knex = require('../../config/database');
 const { Customer, User, hiloHistory, hiloChat, hiloGame, hiloBetting } = require('../models')
-const { limit, random, toggle, get_balance, deposit, whitdraw, rollback } = require('../helpers/game_helper');
+const { limit, random, toggle, get_balance, deposit, withdraw, rollback } = require('../helpers/game_helper');
 const cardNumber = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
 const cardType = ['h', 'd', 's', 'c'];
 
@@ -82,7 +82,7 @@ class ServerHilo extends Room {
         const ref = this.ref(client.xref);
         const balance = await rollback(client.userId, { ...ref, tid: this.gameId, amount: bet });
         if (balance) {
-            client.balace = balance;
+            this.userBalanceState(client.userId, balance);
         }
         var idx = arr.findIndex(e => e.userId == client.userId);
         if (idx !== -1) {
@@ -95,10 +95,10 @@ class ServerHilo extends Room {
         const ref = this.ref(client.xref);
         const balance = await deposit(client.userId, { ...ref, tid: this.gameId, amount: bet });
         if (balance < bet || !balance) {
-            client.send('error', 'balance-error');
+            client.send('notify', { error: 'balance-error' });
             return;
         }
-        client.balace = balance;
+        this.userBalanceState(client.userId, balance);
         this.state.players.unshift({
             userId: client.userId,
             user: client.username,
@@ -190,7 +190,7 @@ class ServerHilo extends Room {
         limit(this.card, { type, num, card }, 2);
         this.state.card = card;
     }
-    checkResult() {
+    async checkResult() {
         this.state.started = false;
         this.getCard();
         limit(this.state.games, { id: this.gameId, card: this.card[1].card }, 10);
@@ -199,12 +199,11 @@ class ServerHilo extends Room {
             let profit = 0;
             if (res) {
                 let xprofit = em.mul(this.state.ratio[player.type], player.bet);
+                let ref = this.ref(player.ref);
+                let balance = await withdraw(player.userId, { ...ref, tid: this.gameId, amount: xprofit });
+                this.userBalanceState(player.userId, balance);
+                // this.updateBalance(player.userId, xprofit, true)
                 profit = em.sub(xprofit, player.bet);
-
-                console.log(player)
-                let ref = this.ref(player.xref);
-                whitdraw(player.userId, { ...ref, tid: this.gameId, amount: xprofit });
-                this.updateBalance(player.userId, xprofit, true)
             }
             player.status = profit;
             let history = {
@@ -227,7 +226,7 @@ class ServerHilo extends Room {
         }, 4000);
     }
     setBetting(client, amount, state) {
-        this.updateBalance(client.userId, amount, !state);
+        // this.updateBalance(client.userId, amount, !state);
         hiloBetting.create({
             user_id: client.userId,
             amount,
@@ -237,13 +236,16 @@ class ServerHilo extends Room {
         })
     }
     async updateBalance(userId, amount, state) {
-        let index = this.clients.findIndex(c => c.userId == userId);
         const user = await User.findOne({ id: userId });
         let newBalance = state ? em.add(user.balance, amount) : em.sub(user.balance, amount);
         await User.update(userId, { balance: newBalance });
+        this.userBalanceState(userId, newBalance);
+    }
+    userBalanceState(userId, balance) {
+        let index = this.clients.findIndex(c => c.userId == userId);
         if (index >= 0) {
-            this.clients[index].send('setting', { balance: newBalance });
-            this.clients[index].balance = newBalance;
+            this.clients[index].send('setting', { balance });
+            this.clients[index].balance = balance;
         }
     }
     checkType(playerType) {
