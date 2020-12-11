@@ -205,6 +205,8 @@ class ServerHilo extends Room {
                 // this.updateBalance(player.userId, xprofit, true)
                 profit = em.sub(xprofit, player.bet);
             }
+            this.userStateNotify(player.userId, res, profit);
+
             player.status = profit;
             let history = {
                 game_id: this.gameId,
@@ -240,6 +242,12 @@ class ServerHilo extends Room {
         let newBalance = state ? em.add(user.balance, amount) : em.sub(user.balance, amount);
         await User.update(userId, { balance: newBalance });
         this.userBalanceState(userId, newBalance);
+    }
+    userStateNotify(userId, state, amount) {
+        let index = this.clients.findIndex(c => c.userId == userId);
+        if (index >= 0) {
+            this.clients[index].send('notify', state ? { success: ['user-win', amount] } : { error: 'user-lose' });
+        }
     }
     userBalanceState(userId, balance) {
         let index = this.clients.findIndex(c => c.userId == userId);
