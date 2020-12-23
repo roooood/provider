@@ -10,7 +10,7 @@ const tableName = 'customers'
 const selectableProps = [
     'id',
     'name',
-    'key',
+    'secret',
     'token',
     'callback',
     'lang',

@@ -2,7 +2,7 @@ exports.up = knex => {
   return knex.schema.createTable('customers', t => {
     t.increments('id').primary()
     t.string('name', 50)
-    t.string('key', 25)
+    t.string('secret', 25)
     t.string('token', 25)
     t.string('callback', 255)
     t.string('lang', 5)

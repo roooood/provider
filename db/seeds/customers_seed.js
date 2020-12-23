@@ -7,9 +7,9 @@ exports.seed = knex => knex(Customer.tableName).del()
     {
       id: 1,
       name: 'aref',
-      key: 'secret',
+      secret: 'secret',
       token: 'demo',
-      callback: 'http://localhost:2567/',
+      callback: 'http://localhost:3333/',
       lang: 'en',
       currency: 'usd',
       comission: 10,
@@ -21,9 +21,9 @@ exports.seed = knex => knex(Customer.tableName).del()
     {
       id: 1,
       name: 'amk',
-      key: 'secret2',
+      secret: 'secret2',
       token: 'test',
-      callback: 'http://localhost:2567/',
+      callback: 'http://localhost:3333/',
       lang: 'en',
       currency: 'usd',
       comission: 10,

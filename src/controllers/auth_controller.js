@@ -7,14 +7,13 @@ var setting = require('../../config/settings');
 const { User, Customer } = require('../models')
 
 const authUsers = (req, res, next) => {
-  //let params = _.pick(req.body, 'type', 'address', 'price');
   const props = req.body;
-  Customer.findOne({ token: props.ref })
+  Customer.findOne({ token: props.customer })
     .then(customer => {
       if (!customer) {
         return res.json({ 'error': 'customer-error' })
       }
-      post(customer.callback + 'auth', { secret: customer.key, token: props.token })
+      post(customer.callback + 'auth', { secret: customer.secret, token: props.user })
         .then((data) => {
           if (data?.result == 'ok') {
             const { id, username, balance } = data.data;
