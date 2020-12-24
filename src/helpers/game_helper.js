@@ -20,7 +20,7 @@ const toggle = (arr, item) => {
         return true;
     }
 }
-const get_balance = async (userId, { id, callback, secret }) => {
+const get_balance = async (userId, { callback, key: secret }, { id }) => {
     const res = await post(callback + 'balance', { secret, id });
     console.log({ customer: callback, type: 'balance', user: id, response: res })
     if (res?.result == 'ok') {
@@ -29,7 +29,7 @@ const get_balance = async (userId, { id, callback, secret }) => {
     }
     return false;
 }
-const deposit = async (userId, { id, callback, secret, amount, tid }) => {
+const deposit = async (userId, { callback, key: secret }, { id, amount, tid }) => {
     const res = await post(callback + 'deposit', { secret, id, amount, tid });
     console.log({ customer: callback, type: 'deposit', user: id, response: res })
     if (res?.result == 'ok') {
@@ -38,7 +38,7 @@ const deposit = async (userId, { id, callback, secret, amount, tid }) => {
     }
     return false;
 }
-const withdraw = async (userId, { id, callback, secret, amount, tid }) => {
+const withdraw = async (userId, { callback, key: secret }, { id, amount, tid }) => {
     const res = await post(callback + 'withdraw', { secret, id, amount, tid });
     console.log({ customer: callback, type: 'withdraw', user: id, response: res })
     if (res?.result == 'ok') {
@@ -47,7 +47,7 @@ const withdraw = async (userId, { id, callback, secret, amount, tid }) => {
     }
     return false;
 }
-const rollback = async (userId, { id, callback, secret, amount, tid }) => {
+const rollback = async (userId, { callback, key: secret }, { id, amount, tid }) => {
     const res = await post(callback + 'rollback', { secret, id, amount, tid });
     console.log({ customer: callback, type: 'rollback', user: id, response: res })
     if (res?.result == 'ok') {

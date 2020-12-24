@@ -19,14 +19,15 @@ const selectableProps = [
     'minBet',
     'changeBet',
     'maxBet',
+    'ratio',
     'updated_at',
     'created_at'
 ]
 
-const beforeSave = user => {
-    let hash = cryptoRandomString({ length: 25, type: 'base64' });
-    return Promise.resolve({ ...user, token: hash })
-}
+// const beforeSave = user => {
+//     let hash = cryptoRandomString({ length: 25, type: 'base64' });
+//     return Promise.resolve({ ...user, token: hash })
+// }
 
 module.exports = knex => {
     const guts = createGuts({
@@ -36,11 +37,10 @@ module.exports = knex => {
         selectableProps
     })
 
-    const create = props => beforeSave(props)
-        .then(customer => guts.create(customer));
+    // const create = props => beforeSave(props)
+    //     .then(customer => guts.create(customer));
 
     return {
         ...guts,
-        create
     }
 }

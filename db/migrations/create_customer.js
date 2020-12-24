@@ -11,6 +11,7 @@ exports.up = knex => {
     t.float('minBet')
     t.float('changeBet')
     t.float('maxBet')
+    t.float('ratio')
     t.timestamp('created_at').defaultTo(knex.fn.now())
     t.timestamp('updated_at').defaultTo(knex.fn.now())
   })
