@@ -6,7 +6,8 @@ var settings = {
     host: '127.0.0.1',
     user: 'root',
     password: '',
-    database: 'provider'
+    database: 'provider',
+    charset: 'utf8mb4'
   }
 };
 

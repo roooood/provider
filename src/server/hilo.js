@@ -8,9 +8,7 @@ const { limit, random, toggle, get_balance, deposit, withdraw, rollback } = requ
 const cardNumber = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
 const cardType = ['h', 'd', 's', 'c'];
 
-const loRatio = [1.09, 1.2, 1.33, 1.5, 1.7, 2, 2.4, 3, 4, 6, 1.8, 12, 0];
-const hiRatio = [0, 12, 6, 4.8, 4, 3, 2.4, 2, 1.7, 1.5, 1.33, 1.2, 1.9];
-
+const ratio = [1.09, 1.2, 1.33, 1.5, 1.7, 2, 2.4, 3, 4, 6, 8, 10, 0];
 class State {
     constructor() {
         this.players = [];
@@ -43,6 +41,7 @@ class ServerHilo extends Room {
         const user = await User.findOne({ id });
         if (user) {
             client.userId = user.id;
+            client.refId = user.ref_id;
             client.username = user.username;
             client.balance = user.balance;
             client.state = user.state;
@@ -74,10 +73,12 @@ class ServerHilo extends Room {
         Customer.findOne({ token: this.roomId })
             .then(customer => {
                 this.customer = customer;
+                this.hiRatio = ratio.map(e => e * customer.ratio);
+                this.loRatio = ratio.reverse().map(e => e * customer.ratio);
             })
     }
     async resetBet(client, { bet }) {
-        const balance = await rollback(client.userId, this.customer, { tid: this.gameId, amount: bet });
+        const balance = await rollback(client.userId, this.customer, { id: client.refId, tid: this.gameId, amount: bet });
         if (balance) {
             this.userBalanceState(client.userId, balance);
         }
@@ -92,7 +93,7 @@ class ServerHilo extends Room {
         client.send('beted', res);
     }
     async setBet(client, { bet, type }) {
-        const balance = await deposit(client.userId, this.customer, { tid: this.gameId, amount: bet });
+        const balance = await deposit(client.userId, this.customer, { id: client.refId, tid: this.gameId, amount: bet });
         if (bet < 0 || balance < bet || !balance) {
             this.userBalanceState(client.userId, 0);
             client.send('notify', { error: 'balance-error' });
@@ -101,6 +102,7 @@ class ServerHilo extends Room {
         this.userBalanceState(client.userId, balance);
         this.state.players.unshift({
             userId: client.userId,
+            refId: client.refId,
             user: client.username,
             type: type,
             bet: bet,
@@ -130,7 +132,7 @@ class ServerHilo extends Room {
             ])
             .from('hilo_chat')
             .leftJoin('users', 'hilo_chat.user_id', 'users.id')
-            .orderBy('id', 'desc')
+            // .orderBy('id', 'desc')
             .limit(20)
             .then(data => {
                 this.state.message = data;
@@ -180,7 +182,7 @@ class ServerHilo extends Room {
         }).then(game => {
             this.gameId = game[0];
         });
-        this.state.ratio = { 'hi': hiRatio[num], 'lo': loRatio[num], '=': 5, 'black': 2, 'red': 2, '2-9': 1.5, 'jqka': 3, 'ka': 4, 'jq': 4, 'a': 12 }
+        this.state.ratio = { 'hi': this.hiRatio[num], 'lo': this.loRatio[num], '=': 5, 'black': 2, 'red': 2, '2-9': 1.5, 'jqka': 3, 'ka': 4, 'jq': 4, 'a': 12 }
     }
     getCard() {
         const num = random(0, 12);
@@ -198,7 +200,7 @@ class ServerHilo extends Room {
             let profit = 0;
             if (res) {
                 let xprofit = em.mul(this.state.ratio[player.type], player.bet);
-                let balance = await withdraw(player.userId, this.customer, { tid: this.gameId, amount: xprofit });
+                let balance = await withdraw(player.userId, this.customer, { id: player.refId, tid: this.gameId, amount: xprofit });
                 this.userBalanceState(player.userId, balance);
                 // this.updateBalance(player.userId, xprofit, true)
                 profit = em.sub(xprofit, player.bet);
@@ -244,7 +246,7 @@ class ServerHilo extends Room {
     userStateNotify(userId, state, amount) {
         let index = this.clients.findIndex(c => c.userId == userId);
         if (index >= 0) {
-            this.clients[index].send('notify', state ? { success: ['user-win', amount] } : { error: 'user-lose' });
+            this.clients[index].send('notify', state ? { win: ['user-win', amount] } : { lose: 'user-lose' });
         }
     }
     userBalanceState(userId, balance) {
